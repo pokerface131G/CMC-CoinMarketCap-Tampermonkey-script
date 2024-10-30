@@ -1,0 +1,102 @@
+// ==UserScript==
+// @name         CMC CoinMarketCap Layout Adjuster
+// @namespace    http://tampermonkey.net/
+// @version      3.4
+// @description  Adjust CoinMarketCap layout by removing RIGHT table and expanding overview. 删除右边表格，并扩展页面。还替代了用 better coinmarketcap 插件了。嘿嘿。
+// @description  页面代码如下。需要删除 div id = overview 表格后的下一个表格，并释放它占用的显示空间。将 div id = overview 表格 扩展到所释放的空间。 用TAMPERMONKEY . // @match https://coinmarketcap.com/view/*
+// @description  这次行了。但是 页面首先会出来空格，然后是页面扩展，消除了空格。可以再优化一下吗。  => done . NB.
+// @author       https://claude.ai
+// @match        https://coinmarketcap.com/view/*
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // 添加初始样式到页面头部
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+        #overview {
+            height: auto !important;
+            min-height: 800px !important;
+            flex-grow: 1 !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+        #overview > div {
+            height: auto !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+        .sc-9c4d5e5b-2,
+        .sc-65e7f566-0 {
+            height: auto !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+    `;
+    document.head.appendChild(styleSheet);
+
+    function adjustLayout() {
+        const overview = document.getElementById('overview');
+        if (!overview) return;
+
+        const tableToRemove = overview.nextElementSibling;
+        if (!tableToRemove) return;
+
+        // 立即隐藏要删除的表格，防止闪烁
+        tableToRemove.style.display = 'none';
+        tableToRemove.style.height = '0';
+        tableToRemove.style.opacity = '0';
+
+        // 立即调整父容器
+        const parentContainer = overview.parentElement;
+        if (parentContainer) {
+            parentContainer.style.cssText = `
+                display: flex !important;
+                flex-direction: column !important;
+                height: auto !important;
+                min-height: 800px !important;
+                transition: all 0.3s ease-in-out !important;
+            `;
+        }
+
+        // 延迟极短时间后删除表格
+        requestAnimationFrame(() => {
+            tableToRemove.remove();
+        });
+    }
+
+    // 使用 MutationObserver 在DOM变化时立即处理
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.addedNodes.length) {
+                const overview = document.getElementById('overview');
+                if (overview) {
+                    adjustLayout();
+                    break;
+                }
+            }
+        }
+    });
+
+    // 在页面开始加载时就启动观察
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+
+    // 多重检查以确保执行
+    ['DOMContentLoaded', 'load', 'readystatechange'].forEach(event => {
+        window.addEventListener(event, () => {
+            requestAnimationFrame(adjustLayout);
+        }, { once: true });
+    });
+
+    // 初始执行
+    if (document.readyState !== 'loading') {
+        requestAnimationFrame(adjustLayout);
+    }
+})();
