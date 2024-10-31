@@ -4,12 +4,12 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.1
 // @description  Perform combined click actions on CoinMarketCap and navigate through pages
-// @description  主要流程是按顺序的。星标流程是 异步的。去除页面加载监听，可加快处理速度。
 // @match        https://coinmarketcap.com/
 // @match        https://coinmarketcap.com/?page=*
 // @grant        none
 // ==/UserScript==
 
+//  主要流程是按顺序的。星标流程是 异步的。去除页面加载监听，可加快处理速度。
 (function() {
     'use strict';
 
