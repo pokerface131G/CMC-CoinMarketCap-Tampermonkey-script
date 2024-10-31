@@ -4,11 +4,11 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.2
 // @description  Revised click behavior based on element states
-// @description  每隔 900秒点击一下 1h % ， 然后检查1h % 的排序状态。 如 1h % 是升序，则不动作。如 1h % 是降序，则延迟 3秒 点击一下 1h %.  如此循环
 // @match        *://*.coinmarketcap.com/watchlist
 // @grant        none
 // ==/UserScript==
 
+//    每隔 900秒点击一下 1h % ， 然后检查1h % 的排序状态。 如 1h % 是升序，则不动作。如 1h % 是降序，则延迟 3秒 点击一下 1h %.  如此循环
 (function () {
     'use strict';
 
