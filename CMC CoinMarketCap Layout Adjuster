@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CMC CoinMarketCap Advanced Layout Adjuster -removeRightTable
 // @namespace    http://tampermonkey.net/
-// @version      4.0
+// @version      3.3
 // @description  Adjusts CoinMarketCap layout by removing RIGHT table and Community section, expanding overview
 // @author       Combined by Claude
 // @match        https://coinmarketcap.com/view/*
