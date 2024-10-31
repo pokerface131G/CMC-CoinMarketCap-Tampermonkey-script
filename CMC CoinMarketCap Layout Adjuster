@@ -56,6 +56,19 @@
             overflow: hidden !important;
         }
 
+       /* 隐藏 block-newsletter 部分 */
+        .block-newsletter,
+        div.sc-65e7f566-0.ibxKcZ  {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            overflow: hidden !important;
+        }
+
+
         /* 调整大屏幕布局 */
         @media screen and (min-width: 1280px) {
             .cmc-body-wrapper .full-width-layout > div:first-child {
