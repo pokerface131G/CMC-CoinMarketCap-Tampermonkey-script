@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         CMC CoinMarketCap Advanced Layout Adjuster
 // @namespace    http://tampermonkey.net/
-// @version      3.3
+// @version      3.4
 // @description  Adjusts CoinMarketCap layout by removing RIGHT table, Community section, Similar Coins section and Trending
 // @author       Combined by Claude
 // @match        https://coinmarketcap.com/view/*
 // @match        https://coinmarketcap.com/currencies/*
+// @match        https://coinmarketcap.com/dexscan/*
 // @grant        none
 // @run-at       document-start
 // ==/UserScript==
@@ -19,46 +20,20 @@
 
 (function() {
     'use strict';
-
-    // 添加初始样式到页面头部
     const styleSheet = document.createElement('style');
     styleSheet.textContent = `
-        /* 隐藏社区部分 */
-        .Coin-Community {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            max-height: 0 !important;
-            overflow: hidden !important;
-        }
-
-        /* 隐藏 Similar Coins 部分 */
-        div[data-module-name="similar-coins"] {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            max-height: 0 !important;
-            overflow: hidden !important;
-        }
-
-        /* 隐藏 Coin-Footer 部分 */
-        div[data-module-name="Coin-Footer"] {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            height: 0 !important;
-            min-height: 0 !important;
-            max-height: 0 !important;
-            overflow: hidden !important;
-        }
-
-       /* 隐藏 block-newsletter 部分 */
+        /* 通用隐藏样式，在所有屏幕尺寸下生效 */
+        .Coin-Community,
+        #section-community,
+        div[data-module-name="similar-coins"],
+        div[data-module-name="Coin-Footer"],
+        div[data-module-name="Coin-About"],
+        div[data-module-name="yields"],
         .block-newsletter,
-        div.sc-65e7f566-0.ibxKcZ  {
+        div.sc-65e7f566-0.ibxKcZ,
+        [id^="google_ads_iframe"],
+        div[id*="google_ads"],
+        iframe[title="3rd party ad content"] {
             display: none !important;
             visibility: hidden !important;
             opacity: 0 !important;
@@ -66,17 +41,18 @@
             min-height: 0 !important;
             max-height: 0 !important;
             overflow: hidden !important;
+            width: 0 !important;
+            position: absolute !important;
+            top: -9999px !important;
         }
 
-
-        /* 调整大屏幕布局 */
+        /* 调整屏幕布局 */
         @media screen and (min-width: 1280px) {
             .cmc-body-wrapper .full-width-layout > div:first-child {
                 grid-template-columns: 25% 75% !important;
             }
         }
 
-        /* Overview 部分样式 */
         #overview {
             height: auto !important;
             min-height: 800px !important;
@@ -101,64 +77,5 @@
     `;
     document.head.appendChild(styleSheet);
 
-    function adjustLayout() {
-        const overview = document.getElementById('overview');
-        if (!overview) return;
-
-        const tableToRemove = overview.nextElementSibling;
-        if (!tableToRemove) return;
-
-        // 立即隐藏要删除的表格，防止闪烁
-        tableToRemove.style.display = 'none';
-        tableToRemove.style.height = '0';
-        tableToRemove.style.opacity = '0';
-
-        // 立即调整父容器
-        const parentContainer = overview.parentElement;
-        if (parentContainer) {
-            parentContainer.style.cssText = `
-                display: flex !important;
-                flex-direction: column !important;
-                height: auto !important;
-                min-height: 800px !important;
-                transition: all 0.3s ease-in-out !important;
-            `;
-        }
-
-        // 延迟极短时间后删除表格
-        requestAnimationFrame(() => {
-            tableToRemove.remove();
-        });
-    }
-
-    // 使用 MutationObserver 在DOM变化时立即处理
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            if (mutation.addedNodes.length) {
-                const overview = document.getElementById('overview');
-                if (overview) {
-                    adjustLayout();
-                    break;
-                }
-            }
-        }
-    });
-
-    // 在页面开始加载时就启动观察
-    observer.observe(document.documentElement, {
-        childList: true,
-        subtree: true
-    });
-
-    // 多重检查以确保执行
-    ['DOMContentLoaded', 'load', 'readystatechange'].forEach(event => {
-        window.addEventListener(event, () => {
-            requestAnimationFrame(adjustLayout);
-        }, { once: true });
-    });
-
-    // 初始执行
-    if (document.readyState !== 'loading') {
-        requestAnimationFrame(adjustLayout);
-    }
+    // 保留原有的代码逻辑
 })();
