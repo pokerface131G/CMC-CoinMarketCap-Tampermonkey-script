@@ -11,6 +11,7 @@
 (function() {
     'use strict';
 
+// 多页面自动重刷。重刷间隔 10分钟 + 随机间隔。
     // 创建状态指示器
     function createStatusIndicator() {
         const indicator = document.createElement('div');
