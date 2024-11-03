@@ -4,7 +4,122 @@
 // @namespace    http://tampermonkey.net/
 // @version      3.2
 // @description  Revised click behavior based on element states
-// @match        *://*.coinmarketcap.com/watchlist
+// @match        *://*.coinmarketcap.com/// ==UserScript==
+// @name         CMC watchlist 1h % 自动点击, DS 多页面自动刷新
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  在特定页面上自动刷新和点击，带倒计时显示
+// @match        https://dexscreener.com/multicharts/*
+// @match        https://coinmarketcap.com/watchlist
+// @grant        none
+// ==/UserScript==
+
+(function () {
+    'use strict';
+
+    let refreshCount = 0; // 初始化刷新计次
+    let autoClickCount = 0; // 初始化自动点击计次
+
+    // 创建倒计时显示元素
+    function createCountdownDisplay() {
+        const display = document.createElement('div');
+        display.id = 'autorefresh-countdown';
+        display.style.position = 'fixed';
+        display.style.top = '55px';  // 保持顶部距离
+        display.style.right = '5%';  // 从右侧 9% 的位置
+        display.style.padding = '10px 15px';
+        display.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        display.style.color = '#00ff00';
+        display.style.borderRadius = '8px';
+        display.style.fontSize = '18px';
+        display.style.fontWeight = '500';
+        display.style.zIndex = '9999';
+        display.style.fontFamily = 'Arial, sans-serif';
+        // 添加阴影效果使其在任何背景下都清晰可见
+        display.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+        document.body.appendChild(display);
+        return display;
+    }
+
+    // 更新倒计时显示
+    function updateCountdown(remainingTime) {
+        let display = document.getElementById('autorefresh-countdown');
+        if (!display) {
+            display = createCountdownDisplay();
+        }
+        const minutes = Math.floor(remainingTime / 60000);
+        const seconds = Math.floor((remainingTime % 60000) / 1000);
+        display.textContent = `刷新倒计时: ${minutes}分${seconds}秒\n已刷新次数: ${refreshCount}\n已点击次数: ${autoClickCount}`;
+    }
+
+    // 自动刷新页面 dexscreener
+    function autoRefresh() {
+        const refreshInterval = 600000; // 每10分钟刷新一次
+        const randomDelay = Math.floor(Math.random() * (60000)); // 随机间隔，最大1分钟
+
+        setTimeout(() => {
+            location.reload(); // 刷新页面
+            refreshCount++; // 增加刷新计次
+            console.log(`页面已刷新，当前刷新次数: ${refreshCount}`);
+            updateCountdown(refreshInterval + randomDelay); // 更新倒计时
+
+            // 每次刷新后重新启动自动刷新逻辑
+            autoRefresh();
+        }, refreshInterval + randomDelay);
+    }
+
+    // 处理自动点击
+    function handleAutoClick() {
+        const elements = document.querySelectorAll('p.sc-71024e3e-0.llNEXf');
+        for (let i = 0; i < elements.length; i++) {
+            if (elements[i].textContent === '1h %') {
+                const arrowElement = elements[i].parentNode.querySelector('.icon-Caret-down');
+                if (!arrowElement || arrowElement.classList.contains('icon-Caret-up')) {
+                    elements[i].click();
+                } else if (arrowElement.classList.contains('icon-Caret-down')) {
+                    elements[i].click();
+                    setTimeout(() => {
+                        elements[i].click();
+                    }, 3000); // 延迟3秒后再次点击
+                }
+                autoClickCount++; // 增加点击计次
+                console.log(`已进行点击次数: ${autoClickCount}`);
+                break;
+            }
+        }
+    }
+
+    // 启动倒计时和自动点击逻辑 coinmarketcap
+    function startAutoClickWithCountdown() {
+        const interval = 900000; // 每15分钟（900秒）执行一次自动点击
+        let nextClickTime = Date.now() + interval;
+
+        function updateDisplay() {
+            const now = Date.now();
+            const remaining = nextClickTime - now;
+
+            if (remaining <= 0) {
+                handleAutoClick();
+                nextClickTime = now + interval;
+            }
+
+            updateCountdown(Math.max(0, remaining));
+            requestAnimationFrame(updateDisplay);
+        }
+
+        updateDisplay(); // 启动更新显示逻辑
+
+        // 启动页面重刷逻辑
+        autoRefresh();
+    }
+
+    // 等待页面加载完成后启动
+    if (document.readyState === 'complete') {
+        startAutoClickWithCountdown();
+    } else {
+        window.addEventListener('load', startAutoClickWithCountdown);
+    }
+})();
 // @grant        none
 // ==/UserScript==
 
