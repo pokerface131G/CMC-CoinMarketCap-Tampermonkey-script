@@ -1,10 +1,4 @@
-
 // ==UserScript==
-// @name         CMC CoinMarketCap AutoClick1h Revised
-// @namespace    http://tampermonkey.net/
-// @version      3.2
-// @description  Revised click behavior based on element states
-// @match        *://*.coinmarketcap.com/// ==UserScript==
 // @name         CMC watchlist 1h % 自动点击, DS 多页面自动刷新
 // @namespace    http://tampermonkey.net/
 // @version      1.0
@@ -111,97 +105,6 @@
 
         // 启动页面重刷逻辑
         autoRefresh();
-    }
-
-    // 等待页面加载完成后启动
-    if (document.readyState === 'complete') {
-        startAutoClickWithCountdown();
-    } else {
-        window.addEventListener('load', startAutoClickWithCountdown);
-    }
-})();
-// @grant        none
-// ==/UserScript==
-
-//    每隔 900秒点击一下 1h % ， 然后检查1h % 的排序状态。 如 1h % 是升序，则不动作。如 1h % 是降序，则延迟 3秒 点击一下 1h %.  如此循环
-(function () {
-    'use strict';
-
-    // 创建倒计时显示元素
-    function createCountdownDisplay() {
-        const display = document.createElement('div');
-        display.id = 'autoclick-countdown';
-        display.style.position = 'fixed';
-        display.style.top = '10px';  // 保持顶部距离
-        display.style.right = '40%';  // 从右侧 40% 的位置
-        display.style.padding = '10px 15px';
-        display.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        display.style.color = '#00ff00';
-        display.style.borderRadius = '8px';
-        display.style.fontSize = '18px';
-        display.style.fontWeight = '500';
-        display.style.zIndex = '9999';
-        display.style.fontFamily = 'Arial, sans-serif';
-        // 添加一点阴影效果使其在任何背景下都清晰可见
-        display.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
-        document.body.appendChild(display);
-        return display;
-    }
-
-    // 更新倒计时显示
-    function updateCountdown(remainingTime) {
-        let display = document.getElementById('autoclick-countdown');
-        if (!display) {
-            display = createCountdownDisplay();
-        }
-        const minutes = Math.floor(remainingTime / 60000);
-        const seconds = Math.floor((remainingTime % 60000) / 1000);
-        display.textContent = `下次点击倒计时: ${minutes}分${seconds}秒`;
-    }
-
-    // 处理自动点击
-    function handleAutoClick() {
-        const elements = document.querySelectorAll('p.sc-71024e3e-0.llNEXf');
-        for (let i = 0; i < elements.length; i++) {
-            if (elements[i].textContent === '1h %') {
-                const arrowElement = elements[i].parentNode.querySelector('.icon-Caret-down');
-                if (!arrowElement || arrowElement.classList.contains('icon-Caret-up')) {
-                    elements[i].click();
-                } else if (arrowElement.classList.contains('icon-Caret-down')) {
-                    elements[i].click();
-                    setTimeout(() => {
-                        elements[i].click();
-                    }, 1000);
-                }
-                break;
-            }
-        }
-    }
-
-    // 启动倒计时和自动点击
-    function startAutoClickWithCountdown() {
-        const interval = 600000; // 10分钟
-        let nextClickTime = Date.now() + interval;
-
-        // 立即执行一次
-        handleAutoClick();
-
-        // 更新倒计时显示
-        function updateDisplay() {
-            const now = Date.now();
-            const remaining = nextClickTime - now;
-
-            if (remaining <= 0) {
-                handleAutoClick();
-                nextClickTime = now + interval;
-            }
-
-            updateCountdown(Math.max(0, remaining));
-            requestAnimationFrame(updateDisplay);
-        }
-
-        // 启动倒计时显示
-        updateDisplay();
     }
 
     // 等待页面加载完成后启动
