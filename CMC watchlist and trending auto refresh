@@ -1,3 +1,14 @@
+CMC watchlist 1h % 自动点击, CMC trending-cryptocurrencies 页面自动刷新,
+功能说明：
+自动刷新+点击：在  coinmarketcap.com/watchlist 页面上每隔900秒（15分钟）自动刷新页面，页面刷新后自动点击“1h %”按钮 一下。
+倒计时显示：在页面上显示下次自动刷新的倒计时和已进行的操作次数。
+页面自动刷新： CMC trending-cryptocurrencies 页面自动刷新, 每隔900秒（15分钟）
+每次刷新会在15分钟的基础上增加0-3分钟的随机延迟。
+
+
+
+
+
 // ==UserScript==
 // @name         CMC watchlist and trending auto refresh
 // @namespace    http://tampermonkey.net/
