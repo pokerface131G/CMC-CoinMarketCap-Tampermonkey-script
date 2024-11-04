@@ -1,0 +1,150 @@
+// ==UserScript==
+// @name         DS DexScreener Multicharts Auto Refresh
+// @namespace    http://tampermonkey.net/
+// @version      1.0
+// @description  Auto refresh DexScreener multicharts page with countdown timer
+// @match        https://dexscreener.com/multicharts*   // <- SB
+// @grant        none
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    const BASE_INTERVAL = 900000; // 15分钟基础间隔
+    const MAX_RANDOM_DELAY = 60000; // 最大随机延迟1分钟
+
+    // 创建计时器显示元素
+    function createTimerDisplay() {
+        const display = document.createElement('div');
+        display.id = 'dex-refresh-countdown';
+        display.style.position = 'fixed';
+        display.style.top = '55px';
+        display.style.right = '5%';
+        display.style.padding = '10px 15px';
+        display.style.backgroundColor = 'rgba(13, 17, 28, 0.9)';
+        display.style.color = '#00ff88';
+        display.style.borderRadius = '8px';
+        display.style.fontSize = '16px';
+        display.style.fontWeight = '500';
+        display.style.zIndex = '9999';
+        display.style.fontFamily = 'Roboto, sans-serif';
+        display.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+        display.style.backdropFilter = 'blur(4px)';
+        display.style.border = '1px solid rgba(255, 255, 255, 0.1)';
+
+        // 立即添加到页面
+        (document.body || document.documentElement).appendChild(display);
+        return display;
+    }
+
+    // 更新倒计时显示
+    function updateTimerDisplay(remainingTime, nextRefreshDelay) {
+        const display = document.getElementById('dex-refresh-countdown') || createTimerDisplay();
+
+        const totalSeconds = Math.ceil(remainingTime / 1000);
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+
+        const delaySeconds = Math.ceil((nextRefreshDelay - BASE_INTERVAL) / 1000);
+
+        display.innerHTML = `
+            Next Refresh: ${minutes}m ${seconds}s
+            ${delaySeconds > 0 ? `(+${delaySeconds}s delay)` : ''}
+        `;
+    }
+
+    // 安全刷新页面
+    function safeRefresh() {
+        // 移除所有可能触发表单重新提交的事件监听器
+        window.onbeforeunload = null;
+        window.onunload = null;
+
+        // 清除表单数据
+        const forms = document.getElementsByTagName('form');
+        for (let form of forms) {
+            form.reset();
+        }
+
+        // 使用 replace 而不是 reload，这样可以避免将当前页面加入历史记录
+        window.location.replace(window.location.href);
+    }
+
+    // 执行自动刷新
+    function autoRefresh() {
+        const randomDelay = Math.floor(Math.random() * MAX_RANDOM_DELAY);
+        const nextRefreshDelay = BASE_INTERVAL + randomDelay;
+
+        // 设置定时刷新
+        const refreshTimeout = setTimeout(() => {
+            safeRefresh();
+        }, nextRefreshDelay);
+
+        // 更新倒计时显示
+        const startTime = Date.now();
+        const timerInterval = setInterval(() => {
+            const elapsed = Date.now() - startTime;
+            const remaining = nextRefreshDelay - elapsed;
+
+            if (remaining <= 0) {
+                clearInterval(timerInterval);
+                return;
+            }
+
+            updateTimerDisplay(remaining, nextRefreshDelay);
+        }, 1000);
+
+        // 清理函数
+        function cleanup() {
+            clearTimeout(refreshTimeout);
+            clearInterval(timerInterval);
+        }
+
+        // 移除默认的 beforeunload 事件
+        window.onbeforeunload = null;
+
+        // 页面卸载时清理
+        window.addEventListener('beforeunload', cleanup);
+    }
+
+    // 防止表单重新提交的函数
+    function preventFormResubmission() {
+        // 移除所有表单的提交事件
+        const forms = document.getElementsByTagName('form');
+        for (let form of forms) {
+            form.onsubmit = null;
+            // 移除表单的 action 属性
+            form.removeAttribute('action');
+            // 重置表单数据
+            form.reset();
+        }
+
+        // 移除页面的 beforeunload 事件
+        window.onbeforeunload = null;
+
+        // 禁用所有隐藏的表单字段
+        const hiddenInputs = document.querySelectorAll('input[type="hidden"]');
+        hiddenInputs.forEach(input => {
+            input.disabled = true;
+        });
+    }
+
+    // 启动自动刷新
+    function initialize() {
+        // 防止表单重新提交
+        preventFormResubmission();
+
+        // 立即显示初始倒计时
+        const randomDelay = Math.floor(Math.random() * MAX_RANDOM_DELAY);
+        updateTimerDisplay(BASE_INTERVAL + randomDelay, BASE_INTERVAL + randomDelay);
+
+        // 启动自动刷新
+        autoRefresh();
+    }
+
+    // 页面加载完成后立即执行
+    if (document.readyState === 'complete') {
+        initialize();
+    } else {
+        window.addEventListener('load', initialize);
+    }
+})();
