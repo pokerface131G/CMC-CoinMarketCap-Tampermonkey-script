@@ -1,3 +1,5 @@
+主要流程是按顺序的。星标流程是 异步的。去除页面加载监听，可加快处理速度。
+
 
 // ==UserScript==
 // @name         CMC CoinMarketCap Click7d + iconStar + nextPage
