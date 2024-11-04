@@ -1,0 +1,80 @@
+// 对如下页面 https://coinmarketcap.com/view/*， https://coinmarketcap.com/currencies/*  ， https://coinmarketcap.com/dexscan/*   ， 隐藏右边 Coin-Community ，并扩展页面。参考  better coinmarketcap 插件的代码。隐藏 页脚下面的一些 广告啥的。。。
+ 
+
+
+
+
+// ==UserScript==
+// @name         CMC CoinMarketCap /view, /currencies/, /dexscan, hiden Ads.
+// @namespace    http://tampermonkey.net/
+// @version      3.4
+// @description  Adjusts CoinMarketCap layout by removing RIGHT table, Community section, Similar Coins section and Trending
+// @author       Combined by Claude
+// @match        https://coinmarketcap.com/view/*
+// @match        https://coinmarketcap.com/currencies/*
+// @match        https://coinmarketcap.com/dexscan/*
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+        /* 通用隐藏样式，在所有屏幕尺寸下生效? */
+        .Coin-Community,
+        #section-community,
+        div[data-module-name="similar-coins"],
+        div[data-module-name="Coin-Footer"],
+        div[data-module-name="Coin-About"],
+        div[data-module-name="yields"],
+        .block-newsletter,
+        div.sc-65e7f566-0.ibxKcZ,
+        [id^="google_ads_iframe"],
+        div[id*="google_ads"],
+        iframe[title="3rd party ad content"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            max-height: 0 !important;
+            overflow: hidden !important;
+            width: 0 !important;
+            position: absolute !important;
+            top: -9999px !important;
+        }
+
+        /* 调整屏幕布局 */
+        @media screen and (min-width: 1280px) {
+            .cmc-body-wrapper .full-width-layout > div:first-child {
+                grid-template-columns: 25% 75% !important;
+            }
+        }
+
+        #overview {
+            height: auto !important;
+            min-height: 800px !important;
+            flex-grow: 1 !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+
+        #overview > div {
+            height: auto !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+
+        .sc-9c4d5e5b-2,
+        div[data-module-name="Coin-Community"].sc-65e7f566-0 {
+            height: auto !important;
+            min-height: 100% !important;
+            max-height: none !important;
+            transition: all 0.3s ease-in-out !important;
+        }
+    `;
+    document.head.appendChild(styleSheet);
+
+    // 保留原有的代码逻辑
+})();
