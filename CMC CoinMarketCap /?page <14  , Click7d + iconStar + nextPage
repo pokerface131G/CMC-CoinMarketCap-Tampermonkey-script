@@ -2,7 +2,7 @@
 
 
 // ==UserScript==
-// @name         CMC CoinMarketCap Click7d + iconStar + nextPage
+// @name         CMC CoinMarketCap /?page <14  , Click7d + iconStar + nextPage
 // @namespace    http://tampermonkey.net/
 // @version      3.1
 // @description  Perform combined click actions on CoinMarketCap and navigate through pages
