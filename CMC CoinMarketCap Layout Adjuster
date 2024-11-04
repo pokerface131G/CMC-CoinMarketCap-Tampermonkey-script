@@ -2,7 +2,14 @@
 // @name         CMC CoinMarketCap Advanced Layout Adjuster
 // @namespace    http://tampermonkey.net/
 // @version      3.4
-// @description  Adjusts CoinMarketCap layout by removing RIGHT table, Community section, Similar Coins section and Trending
+// @description  Adjusts https://coinmarketcap.com/view/solana-ecosystem/ ， https://coinmarketcap.com/currencies/degen-base/   隐藏右边表格，并扩展页面。不用 better coinmarketcap 插件了。嘿嘿。
+ 1， 页面代码如下。<div class="grid full-width-layout">  …  隐藏 div id = overview 表格后的下一个表格，并释放它占用的显示空间。将 div id = overview 表格 扩展到所释放的空间。 用TAMPERMONKEY .
+ 2， 页面代码见附件。 你写个 TAMPERMONKEY 脚本，将 页面里 Coin-Community 部分隐藏。 参考 better CMC 这个代码写，它可以实现隐藏。
+ 3， 将 页脚的部分也隐藏了。
+ 这次行了。但是 页面首先会出来空格，然后是页面扩展，消除了空格。可以再优化一下吗。  => done . NB.
+
+
+layout by removing RIGHT table, Community section, Similar Coins section and Trending
 // @author       Combined by Claude
 // @match        https://coinmarketcap.com/view/*
 // @match        https://coinmarketcap.com/currencies/*
