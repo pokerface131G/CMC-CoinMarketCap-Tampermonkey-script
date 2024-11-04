@@ -1,116 +1,165 @@
 // ==UserScript==
-// @name         CMC watchlist 1h % 自动点击, DS 多页面自动刷新
+// @name         CMC watchlist and trending auto refresh
 // @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  在特定页面上自动刷新和点击，带倒计时显示
-// @match        https://dexscreener.com/multicharts/*
-// @match        https://coinmarketcap.com/watchlist
+// @version      1.4
+// @description  Auto refreshes CMC watchlist page (and clicks 1h%) and trending page every 15-18 minutes
+// @match        https://coinmarketcap.com/watchlist/
+// @match        https://coinmarketcap.com/trending-cryptocurrencies/
 // @grant        none
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
 
-    let refreshCount = 0; // 初始化刷新计次
-    let autoClickCount = 0; // 初始化自动点击计次
+    let countdownElements = {};
+    let nextRefreshTime = {
+        watchlist: 0,
+        trending: 0
+    };
 
-    // 创建倒计时显示元素
-    function createCountdownDisplay() {
+    const BASE_INTERVAL = 900000; // 15 minutes
+    const MAX_RANDOM_DELAY = 180000; // 3 minutes
+    const MAX_RETRY_TIME = 10000; // 10 seconds maximum retry time
+    const RETRY_INTERVAL = 500; // Check every 500ms
+
+    // Get next refresh time with random delay
+    function getNextRefreshTime() {
+        const randomDelay = Math.floor(Math.random() * MAX_RANDOM_DELAY);
+        return BASE_INTERVAL + randomDelay;
+    }
+
+    // Create countdown display
+    function createCountdownDisplay(id, topOffset) {
+        if (countdownElements[id]) return countdownElements[id];
+
         const display = document.createElement('div');
-        display.id = 'autorefresh-countdown';
         display.style.position = 'fixed';
-        display.style.top = '55px';  // 保持顶部距离
-        display.style.right = '5%';  // 从右侧 9% 的位置
+        display.style.top = `${topOffset}px`;
+        display.style.right = '5%';
         display.style.padding = '10px 15px';
         display.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
         display.style.color = '#00ff00';
         display.style.borderRadius = '8px';
-        display.style.fontSize = '18px';
+        display.style.fontSize = '16px';
         display.style.fontWeight = '500';
         display.style.zIndex = '9999';
         display.style.fontFamily = 'Arial, sans-serif';
-        // 添加阴影效果使其在任何背景下都清晰可见
         display.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+
         document.body.appendChild(display);
+        countdownElements[id] = display;
         return display;
     }
 
-    // 更新倒计时显示
-    function updateCountdown(remainingTime) {
-        let display = document.getElementById('autorefresh-countdown');
-        if (!display) {
-            display = createCountdownDisplay();
-        }
+    // Update countdown display
+    function updateCountdown(id) {
+        const display = createCountdownDisplay(id, id === 'watchlist' ? 55 : 55);
+        const now = Date.now();
+        const remainingTime = Math.max(0, nextRefreshTime[id] - now);
         const minutes = Math.floor(remainingTime / 60000);
         const seconds = Math.floor((remainingTime % 60000) / 1000);
-        display.textContent = `刷新倒计时: ${minutes}分${seconds}秒\n已刷新次数: ${refreshCount}\n已点击次数: ${autoClickCount}`;
+        const pageName = id.charAt(0).toUpperCase() + id.slice(1);
+        display.textContent = `${pageName} next refresh: ${minutes}m ${seconds}s`;
     }
 
-    // 自动刷新页面 dexscreener
-    function autoRefresh() {
-        const refreshInterval = 600000; // 每10分钟刷新一次
-        const randomDelay = Math.floor(Math.random() * (60000)); // 随机间隔，最大1分钟
+    // Enhanced click 1h% button function with retry mechanism
+    function click1hButton(startTime = Date.now()) {
+        const elements = document.querySelectorAll('p.sc-71024e3e-0.llNEXf, div[data-text="1h %"]');
+        let clicked = false;
 
-        setTimeout(() => {
-            location.reload(); // 刷新页面
-            refreshCount++; // 增加刷新计次
-            console.log(`页面已刷新，当前刷新次数: ${refreshCount}`);
-            updateCountdown(refreshInterval + randomDelay); // 更新倒计时
-
-            // 每次刷新后重新启动自动刷新逻辑
-            autoRefresh();
-        }, refreshInterval + randomDelay);
-    }
-
-    // 处理自动点击
-    function handleAutoClick() {
-        const elements = document.querySelectorAll('p.sc-71024e3e-0.llNEXf');
-        for (let i = 0; i < elements.length; i++) {
-            if (elements[i].textContent === '1h %') {
-                const arrowElement = elements[i].parentNode.querySelector('.icon-Caret-down');
-                if (!arrowElement || arrowElement.classList.contains('icon-Caret-up')) {
-                    elements[i].click();
-                } else if (arrowElement.classList.contains('icon-Caret-down')) {
-                    elements[i].click();
-                    setTimeout(() => {
-                        elements[i].click();
-                    }, 3000); // 延迟3秒后再次点击
-                }
-                autoClickCount++; // 增加点击计次
-                console.log(`已进行点击次数: ${autoClickCount}`);
+        for (let element of elements) {
+            if (element.textContent === '1h %') {
+                element.click();
+                console.log('Successfully clicked 1h% button');
+                clicked = true;
                 break;
             }
         }
+
+        // If button not found and within retry time limit, try again
+        if (!clicked && (Date.now() - startTime < MAX_RETRY_TIME)) {
+            setTimeout(() => click1hButton(startTime), RETRY_INTERVAL);
+        }
     }
 
-    // 启动倒计时和自动点击逻辑 coinmarketcap
-    function startAutoClickWithCountdown() {
-        const interval = 900000; // 每15分钟（900秒）执行一次自动点击
-        let nextClickTime = Date.now() + interval;
-
-        function updateDisplay() {
-            const now = Date.now();
-            const remaining = nextClickTime - now;
-
-            if (remaining <= 0) {
-                handleAutoClick();
-                nextClickTime = now + interval;
-            }
-
-            updateCountdown(Math.max(0, remaining));
-            requestAnimationFrame(updateDisplay);
+    // Refresh watchlist page and click 1h%
+    function refreshWatchlist() {
+        // Wait for page to be interactive before trying to click
+        if (document.readyState === 'complete') {
+            click1hButton();
+        } else {
+            window.addEventListener('load', () => click1hButton());
         }
 
-        updateDisplay(); // 启动更新显示逻辑
+        const nextInterval = getNextRefreshTime();
+        nextRefreshTime.watchlist = Date.now() + nextInterval;
 
-        // 启动页面重刷逻辑
-        autoRefresh();
+        setTimeout(() => {
+            if (location.href.includes('/watchlist')) {
+                location.reload();
+            }
+        }, nextInterval);
     }
 
-    // 等待页面加载完成后启动
-    if (document.readyState === 'complete') {
-        startAutoClickWithCountdown();
-    } else {
-        window.addEventListener('load', startAutoClickWithCountdown);
+    // Refresh trending page
+    function refreshTrending() {
+        const nextInterval = getNextRefreshTime();
+        nextRefreshTime.trending = Date.now() + nextInterval;
+
+        setTimeout(() => {
+            if (location.href.includes('/trending-cryptocurrencies')) {
+                location.reload();
+            }
+        }, nextInterval);
     }
+
+    // Initialize countdown timer
+    function initializeTimer() {
+        const currentPage = location.href;
+        const isWatchlist = currentPage.includes('/watchlist');
+        const isTrending = currentPage.includes('/trending-cryptocurrencies');
+
+        // Set initial next refresh times
+        if (isWatchlist) {
+            nextRefreshTime.watchlist = Date.now() + getNextRefreshTime();
+        }
+        if (isTrending) {
+            nextRefreshTime.trending = Date.now() + getNextRefreshTime();
+        }
+
+        // Update countdown every second
+        setInterval(() => {
+            if (isWatchlist) {
+                updateCountdown('watchlist');
+            }
+            if (isTrending) {
+                updateCountdown('trending');
+            }
+        }, 1000);
+    }
+
+    // Start the script
+    function start() {
+        // Initialize the countdown display
+        initializeTimer();
+
+        const currentPage = location.href;
+        const isWatchlist = currentPage.includes('/watchlist');
+        const isTrending = currentPage.includes('/trending-cryptocurrencies');
+
+        if (isWatchlist) {
+            // Add small delay before first click attempt
+            setTimeout(() => click1hButton(), 1000);
+            // Start the watchlist refresh cycle
+            setTimeout(refreshWatchlist, getNextRefreshTime());
+        }
+
+        if (isTrending) {
+            // Start the trending refresh cycle
+            setTimeout(refreshTrending, getNextRefreshTime());
+        }
+    }
+
+    // Start the script
+    start();
 })();
