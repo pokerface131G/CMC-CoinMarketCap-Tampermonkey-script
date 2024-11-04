@@ -1,3 +1,9 @@
+自动重刷：在 https://dexscreener.com/multicharts/* 页面上每隔10分钟（加上随机间隔）自动刷新，并显示倒计时和已进行的刷新次数。
+有时候 会弹出 重新提交表单的窗口，需要 点击 继续 才能刷新页面。 此窗口 似乎是 浏览器弹出的，没有 htm 代码的。处理这个
+
+
+
+
 // ==UserScript==
 // @name         DS DexScreener Multicharts Auto Refresh
 // @namespace    http://tampermonkey.net/
