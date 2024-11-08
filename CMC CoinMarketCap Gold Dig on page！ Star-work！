@@ -2,7 +2,7 @@
 // @name         CMC CoinMarketCap Gold Dig on page！ Star-work！
 // @namespace    http://tampermonkey.net/
 // @version      3.3
-// @description  1页耗时20秒。 仅从第二页开始选取！首页的其它操作太多了。gold dig 流程：
+// @description  1页耗时60秒。 仅从第二页开始选取！首页的其它操作太多了。gold dig 流程：
 // @match        https://coinmarketcap.com/?page=*
 // @grant        GM_addStyle
 // @run-at       document-start
@@ -17,8 +17,9 @@
         maxPage: 19,
         maxRowsToProcess: 33,
         sortColumnText: '30d %',
-        volumeMcapValue: 0.03,
-        minThirtyDayThreshold: 1,
+        volumeMcapValue: 0.033,
+        maxSixtyDayThreshold: 666,
+        minThirtyDayThreshold: 3,
         maxThirtyDayThreshold: 222,
         minSevenDayThreshold: 11,
         maxSevenDayThreshold: 222,
@@ -125,6 +126,8 @@
 
             // 数据获取
             const volumeMcapValue = parseFloat(cells[volumeMcapIndex].innerText.replace(/,/g, ''));
+            const sixtyDayCaretUp = cells[sixtyDayIndex].querySelector('.icon-Caret-up');  // 新增：获取 60 天涨幅的箭头方向
+            const sixtyDayValue = parseFloat(cells[sixtyDayIndex].innerText.replace('%', '').trim());  // 新增：获取 60 天涨幅的值
             const thirtyDayCaretUp = cells[thirtyDayIndex].querySelector('.icon-Caret-up');
             const thirtyDayValue = parseFloat(cells[thirtyDayIndex].innerText.replace('%', '').trim());
             const sevenDayCaretUp = cells[sevenDayIndex].querySelector('.icon-Caret-up');
@@ -148,6 +151,8 @@
             // 当然可能有增长缓慢的案例。但是，30d 的平均涨幅 < 7d 的平均涨幅 还是很有参考意义。
             // 条件判断
             if (volumeMcapValue > CONFIG.volumeMcapValue &&
+                sixtyDayCaretUp &&  // 新增：60 天涨幅箭头向上
+                sixtyDayValue < CONFIG.maxSixtyDayThreshold &&  // 新增：60 天涨幅小于阈值
                 thirtyDayCaretUp &&
                 thirtyDayValue > CONFIG.minThirtyDayThreshold &&
                 thirtyDayValue < CONFIG.maxThirtyDayThreshold &&
@@ -194,6 +199,7 @@
 
         const headerCells = document.querySelectorAll('table.cmc-table thead th');
         let volumeMcapIndex = -1;
+        let sixtyDayIndex = -1;
         let thirtyDayIndex = -1;
         let sevenDayIndex = -1;
         let twentyFourHourIndex = -1;
@@ -201,6 +207,7 @@
         headerCells.forEach((cell, index) => {
             const text = cell.innerText;
             if (text.includes('Volume / Mcap')) volumeMcapIndex = index;
+            if (text.includes('60d %')) sixtyDayIndex = index;
             if (text.includes('30d %')) thirtyDayIndex = index;
             if (text.includes('7d %')) sevenDayIndex = index;
             if (text.includes('24h %')) twentyFourHourIndex = index;
