@@ -1,0 +1,80 @@
+功能要求
+页面布局优化。对行情表 的拓展布局。 以及隐藏部分div, section 等
+页面自动刷新+点击。每隔 15分钟+随机 <1分钟 进行页面刷新，
+刷新后 点击排序。 《- 取消。避免和 gold dig 点击功能冲突。
+页面刷新倒计时提示。 
+ ---------------------------------------
+// ==UserScript==
+// @name         CMC CoinMarketCap most list！Expand, Auto Refresh,  
+// @namespace    http://tampermonkey.net/
+// @version      3.2
+// @description  CMC 行情表 的拓展布局，隐藏部分 div, section 等，每n 分钟后页面自动刷新， 
+// @match        https://coinmarketcap.com/watchlist/
+// @match        https://coinmarketcap.com/view/*
+// @match        https://coinmarketcap.com/trending-cryptocurrencies/
+// @match        https://coinmarketcap.com/most-viewed-pages/
+// @match        https://coinmarketcap.com/
+// @match        https://coinmarketcap.com/?page=*
+// @grant        GM_addStyle
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // 配置变量
+    const CONFIG = {
+        refreshInterval: 900, // 15 分钟刷新 (单位: 秒)
+    };
+
+    const clickTargetTextConfig = '7d %';
+
+    // 优化布局样式
+    const customStyles = `
+       .main-content,.cmc-body-wrapper { max-width: none!important; padding: 0 16px!important; }
+       .grid { max-width: none!important; width: calc(100% - 32px)!important; margin: 0 16px!important; }
+       .grid > div { padding: 0!important; }
+       .Coin-Community, #section-community, div[data-module-name="similar-coins"], div[data-module-name="Coin-Footer"], div[data-module-name="Coin-About"], div[data-module-name="yields"],.block-newsletter, div.sc-65e7f566-0.ibxKcZ, [id^="google_ads_iframe"], div[id*="google_ads"], iframe[title="3rd party ad content"] { display: none!important; }
+        #timer-container { position: fixed; top: 55px; right: 90px; background-color: rgba(0, 128, 0, 0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999; font-size: 12px; }
+    `;
+    GM_addStyle(customStyles);
+
+    let timerContainer;
+
+    function getTimerContainer() {
+        if (!timerContainer) {
+            timerContainer = document.createElement('div');
+            timerContainer.id = 'timer-container';
+            document.body.appendChild(timerContainer);
+        }
+        return timerContainer;
+    }
+
+    // 自动刷新倒计时
+    function startCountdown(duration) {
+        const container = getTimerContainer();
+        let timer = duration;
+
+        function updateTimer() {
+            if (timer < 0) {
+                location.reload();
+                return;
+            }
+
+            const minutes = Math.floor(timer / 60);
+            const seconds = timer % 60;
+            container.textContent = `刷新倒计时: ${minutes}:${seconds < 10? '0' : ''}${seconds}`;
+            timer--;
+
+            setTimeout(updateTimer, 1000);
+        }
+
+        updateTimer();
+    }
+
+    // 主函数
+    window.addEventListener('load', function() {
+        startCountdown(CONFIG.refreshInterval); 
+    });
+})();
+
