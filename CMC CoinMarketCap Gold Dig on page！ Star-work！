@@ -1,0 +1,228 @@
+// ==UserScript==
+// @name         CMC CoinMarketCap Gold Dig on page！ Star-work！
+// @namespace    http://tampermonkey.net/
+// @version      3.3
+// @description  1页耗时20秒。 仅从第二页开始选取！首页的其它操作太多了。gold dig 流程：
+// @match        https://coinmarketcap.com/?page=*
+// @grant        GM_addStyle
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // Configuration
+    // 配置。 delays 数值，ai 你不要乱改啊。star 点的多了，服务器似乎就不让你点了。靠。只能手动点了。
+    const CONFIG = {
+        maxPage: 19,
+        maxRowsToProcess: 33,
+        sortColumnText: '30d %',
+        volumeMcapValue: 0.03,
+        minThirtyDayThreshold: 1,
+        maxThirtyDayThreshold: 222,
+        minSevenDayThreshold: 11,
+        maxSevenDayThreshold: 222,
+        minTwentyFourHourThreshold: -22,
+        maxTwentyFourHourThreshold: 222,
+        delays: {
+            initial: 20000,
+            Sort: 5000,
+            Star: 500,
+            nextPage: 3000,
+            retryDelay: 1000
+        }
+    };
+
+    let currentPage = 1;
+
+    // 优化布局样式
+    const customStyles = `
+.main-content,.cmc-body-wrapper { max-width: none!important; padding: 0 16px!important; }
+.grid { max-width: none!important; width: calc(100% - 32px)!important; margin: 0 16px!important; }
+.grid > div { padding: 0!important; }
+.Coin-Community, #section-community, div[data-module-name="similar-coins"], div[data-module-name="Coin-Footer"], div[data-module-name="Coin-About"], div[data-module-name="yields"],.block-newsletter, div.sc-65e7f566-0.ibxKcZ, [id^="google_ads_iframe"], div[id*="google_ads"], iframe[title="3rd party ad content"] { display: none!important; }
+#timer-container { position: fixed; top: 55px; right: 95px; background-color: rgba(128, 128, 0, 0.7); color: white; padding: 10px; border-radius: 5px; z-index: 9999; font-size: 12px; }
+    `;
+    GM_addStyle(customStyles);
+
+    // 棕色计时器提示
+    const timerElement = document.createElement('div');
+    timerElement.id = 'timer-container';
+    timerElement.textContent = 'Elapsed Time: 0s';
+    document.body.appendChild(timerElement);
+    let startTime = Date.now();
+
+    function updateTimer() {
+        const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+        timerElement.textContent = `Elapsed Time: ${elapsedTime}s`;
+        requestAnimationFrame(updateTimer);
+    }
+    updateTimer();
+
+    // 检查排序状态
+    function checkXdSortStatus() {
+        const XDayHeaders = document.querySelectorAll('p.sc-71024e3e-0.llNEXf');
+        let XDayHeader = null;
+        XDayHeaders.forEach(header => {
+            if (header.textContent.includes(CONFIG.sortColumnText)) {
+                XDayHeader = header;
+            }
+        });
+
+        if (!XDayHeader) {
+            console.log('Xd % header not found');
+            return null;
+        }
+
+        const headerCell = XDayHeader.closest('div[role="columnheader"]');
+        if (!headerCell) {
+            console.log('Column header cell not found');
+            return null;
+        }
+
+        const caretDown = headerCell.querySelector('.icon-Caret-down');
+        const caretUp = headerCell.querySelector('.icon-Caret-up');
+
+        if (caretDown) return 'down';
+        else if (caretUp) return 'up';
+        else return 'none';
+    }
+
+    async function clickAndCheckColumn() {
+        await new Promise(resolve => setTimeout(resolve, CONFIG.delays.initial));
+        const elements = document.querySelectorAll('p.sc-71024e3e-0.llNEXf');
+        elements.forEach(element => {
+            if (element.textContent === CONFIG.sortColumnText) {
+                element.click();
+            }
+        });
+
+        await new Promise(r => setTimeout(r, CONFIG.delays.Sort));
+        let sortStatus = checkXdSortStatus();
+
+        if (sortStatus === 'up') {
+            elements.forEach(element => {
+                if (element.textContent === CONFIG.sortColumnText) {
+                    element.click();
+                }
+            });
+            await new Promise(r => setTimeout(r, CONFIG.delays.Sort));
+            sortStatus = checkXdSortStatus();
+        }
+    }
+
+    // 改进的星标处理函数
+    async function processStars(rows, volumeMcapIndex, thirtyDayIndex, sevenDayIndex, twentyFourHourIndex) {
+        let processedCount = 0;
+        let failedClickCount = 0;
+
+        for (let index = 0; index < rows.length && index < CONFIG.maxRowsToProcess; index++) {
+            const cells = rows[index].querySelectorAll('td');
+
+            if (cells.length <= Math.max(volumeMcapIndex, thirtyDayIndex, sevenDayIndex, twentyFourHourIndex)) {
+                continue;
+            }
+
+            // 数据获取
+            const volumeMcapValue = parseFloat(cells[volumeMcapIndex].innerText.replace(/,/g, ''));
+            const thirtyDayCaretUp = cells[thirtyDayIndex].querySelector('.icon-Caret-up');
+            const thirtyDayValue = parseFloat(cells[thirtyDayIndex].innerText.replace('%', '').trim());
+            const sevenDayCaretUp = cells[sevenDayIndex].querySelector('.icon-Caret-up');
+            const sevenDayValue = parseFloat(cells[sevenDayIndex].innerText.replace('%', '').trim());
+
+            // 处理星标
+            const filledStar = rows[index].querySelector('.icon-Star-Filled');
+            let emptyStar = null;
+
+            // 多层次查找空星标
+            const starElements = rows[index].querySelectorAll('.icon-Star');
+            for (const star of starElements) {
+                if (window.getComputedStyle(star).color === 'rgb(var(--color-light-neutral-4))' ||
+                    star.style.color === 'var(--color-light-neutral-4)') {
+                    emptyStar = star;
+                    break;
+                }
+            }
+
+            // 星标填充的逻辑。 在 30d 的一定涨幅范围内，且 30d 的平均涨幅 < 7d 的平均涨幅 的标的。 单看 30天涨幅<7天涨幅 似乎意义不大。24h 数据太少，偶然性大。
+            // 当然可能有增长缓慢的案例。但是，30d 的平均涨幅 < 7d 的平均涨幅 还是很有参考意义。
+            // 条件判断
+            if (volumeMcapValue > CONFIG.volumeMcapValue &&
+                thirtyDayCaretUp &&
+                thirtyDayValue > CONFIG.minThirtyDayThreshold &&
+                thirtyDayValue < CONFIG.maxThirtyDayThreshold &&
+                thirtyDayCaretUp &&
+                thirtyDayValue/(30*24) < sevenDayValue/(7*24) &&
+                sevenDayCaretUp &&
+                sevenDayValue > CONFIG.minSevenDayThreshold &&
+                sevenDayValue < CONFIG.maxSevenDayThreshold &&
+                emptyStar &&
+                !filledStar) {
+
+                try {
+                    await new Promise(resolve => setTimeout(resolve, CONFIG.delays.Star));
+
+                    // 直接点击尝试
+                    emptyStar.click();
+
+                    // 备用点击方法
+                    if (!rows[index].querySelector('.icon-Star-Filled')) {
+                        const event = new MouseEvent('click', {
+                            view: window,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        emptyStar.dispatchEvent(event);
+                    }
+
+                    console.log(`Clicked star for row ${processedCount + 1}, name: ${cells[2].innerText}`);
+                } catch (error) {
+                    console.error(`Failed to click star for row ${processedCount + 1}`);
+                    failedClickCount++;
+                }
+            }
+
+            processedCount++;
+        }
+
+        console.log(`Star processing complete: processed ${processedCount} stars, ${failedClickCount} failed clicks`);
+    }
+
+    // 主流程
+    async function main() {
+        await clickAndCheckColumn();
+
+        const headerCells = document.querySelectorAll('table.cmc-table thead th');
+        let volumeMcapIndex = -1;
+        let thirtyDayIndex = -1;
+        let sevenDayIndex = -1;
+        let twentyFourHourIndex = -1;
+
+        headerCells.forEach((cell, index) => {
+            const text = cell.innerText;
+            if (text.includes('Volume / Mcap')) volumeMcapIndex = index;
+            if (text.includes('30d %')) thirtyDayIndex = index;
+            if (text.includes('7d %')) sevenDayIndex = index;
+            if (text.includes('24h %')) twentyFourHourIndex = index;
+        });
+
+        const rows = document.querySelectorAll('table.cmc-table tbody tr');
+        await processStars(rows, volumeMcapIndex, thirtyDayIndex, sevenDayIndex, twentyFourHourIndex);
+        handleNextPage();
+    }
+
+    // 页面导航
+    function handleNextPage() {
+        const urlParams = new URLSearchParams(window.location.search);
+        currentPage = parseInt(urlParams.get('page')) || 1;
+
+        if (currentPage < CONFIG.maxPage) {
+            const nextPage = currentPage + 1;
+            setTimeout(() => {
+                window.location.href = `https://coinmarketcap.com/?page=${nextPage}`;
+            }, CONFIG.delays.nextPage);
+        }
+    }
+
+    main();
+})();
