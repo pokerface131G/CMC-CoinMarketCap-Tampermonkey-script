@@ -1,0 +1,387 @@
+// ==UserScript==
+// @name         CMC CoinMarketCap Gold Dig! Star-Vol7dAvg+30dAvg.CLAUDE OK
+// @namespace    http://tampermonkey.net/
+// @version      2.0
+// @description  增强的数据分析和收藏功能
+// @match        https://coinmarketcap.com/?page=*
+// @grant        GM_addStyle
+// @run-at       document-start
+// ==/UserScript==
+
+(function() {
+    'use strict';
+
+    // Configuration object
+    const CONFIG = {
+        maxPage: 18,
+        maxRowsToProcess: 33,
+        sortColumnText: '30d %',
+        volumeMcapThreshold: 0.033,
+        thresholds: {
+            sixtyDay: { max: 666 },
+            thirtyDay: { min: 3, max: 222 },
+            sevenDay: { min: 11, max: 222 },
+            twentyFourHour: { min: -18, max: 18 }
+        },
+        delays: {
+            initial: 20000,  // 首页加载延迟。Ai 你不要乱改
+            sort: 5000,  //xd 排序延迟
+            star: 500, //星标填充延迟
+            nextPage: 6000,
+            retry: 1000
+        },
+        selectors: {
+            headerCell: 'th[class*="stickyTop"]',  // 更新选择器以匹配实际DOM
+            headerDiv: 'div[class*="HETIK"]',      // 更新选择器以匹配实际DOM
+            caretUp: '[class*="Caret-up"]',
+            caretDown: '[class*="Caret-down"]',
+            table: 'table[class*="cmc-table"]',
+            tableRow: 'tbody tr',
+            emptyStar: '.icon-Star:not(.icon-Star-Filled), [class*="star"]:not([class*="filled"])'
+        }
+    };
+
+
+
+    // 样式定义
+    const STYLES = `
+        .main-content, .cmc-body-wrapper {
+            max-width: none !important;
+            padding: 0 16px !important;
+        }
+        .grid {
+            max-width: none !important;
+            width: calc(100% - 32px) !important;
+            margin: 0 16px !important;
+        }
+        .grid > div {
+            padding: 0 !important;
+        }
+        .Coin-Community, #section-community,
+        div[data-module-name="similar-coins"],
+        div[data-module-name="Coin-Footer"],
+        div[data-module-name="Coin-About"],
+        div[data-module-name="yields"],
+        .block-newsletter,
+        div.sc-65e7f566-0.ibxKcZ,
+        [id^="google_ads_iframe"],
+        div[id*="google_ads"],
+        iframe[title="3rd party ad content"] {
+            display: none !important;
+        }
+        #timer-container {
+            position: fixed;
+            top: 55px;
+            right: 155px;
+            background-color: rgba(255, 215, 0, 0.7); //GOLD
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 9999;
+            font-size: 12px;
+        }
+    `;
+
+    // 添加样式
+    GM_addStyle(STYLES);
+
+    /**
+     * 数据提取工具类 数据格式化
+     */
+    class DataExtractor {
+        static extractNumber(text) {
+            if (!text) return null;
+            text = text.trim();
+            const multipliers = { 'K': 1000, 'M': 1000000, 'B': 1000000000, 'T': 1000000000000 };
+            const match = text.match(/^[\$]?([\d,.]+)([KMBT])?$/i);
+
+            if (match) {
+                const num = parseFloat(match[1].replace(/,/g, ''));
+                const multiplier = match[2] ? multipliers[match[2].toUpperCase()] : 1;
+                return num * multiplier;
+            }
+            return parseFloat(text.replace(/[^0-9.-]/g, '')) || 0;
+        }
+
+        static extractPercentage(cell) {
+            if (!cell) return null;
+            const text = cell.textContent.trim();
+            const match = text.match(/([-+]?\d*\.?\d+)%?/);
+            return match ? parseFloat(match[1]) : null;
+        }
+    }
+
+
+    /**
+     * 排序管理类
+     */
+
+class SortManager {
+    constructor() {
+        this.headerSelectors = CONFIG.selectors;
+    }
+
+    findSortableHeader(searchText) {
+        // 直接寻找带有 data-sensors-click 的文本元素
+        const textElements = Array.from(document.querySelectorAll('p[data-sensors-click="true"]'));
+        return textElements.find(el => el.textContent.trim() === searchText);
+    }
+
+    checkSortStatus(element) {
+        if (!element) return 'none';
+        // 向上查找到 th 元素
+        const th = element.closest('th');
+        if (th.querySelector(this.headerSelectors.caretUp)) return 'up';
+        if (th.querySelector(this.headerSelectors.caretDown)) return 'down';
+        return 'none';
+    }
+
+    triggerHeaderClick(element) {
+        if (!element) return;
+
+        try {
+            // 直接调用原生的 click() 方法
+            element.click();
+        } catch (error) {
+            console.error('Click failed:', error);
+            // 备用方案：使用事件
+            const event = new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true
+            });
+            element.dispatchEvent(event);
+        }
+    }
+
+    handleSort(columnText) {
+        return new Promise((resolve) => {
+            const element = this.findSortableHeader(columnText);
+            if (!element) {
+                console.error('未找到排序元素');
+                return resolve(false);
+            }
+
+            console.log('当前排序状态:', this.checkSortStatus(element));
+
+            // 第一次点击
+            this.triggerHeaderClick(element);
+
+            setTimeout(() => {
+                const firstStatus = this.checkSortStatus(element);
+                console.log('点击后状态:', firstStatus);
+
+                if (firstStatus !== 'down') {
+                    // 第二次点击
+                    this.triggerHeaderClick(element);
+
+                    setTimeout(() => {
+                        const finalStatus = this.checkSortStatus(element);
+                        console.log('最终状态:', finalStatus);
+                        resolve(finalStatus === 'down');
+                    }, CONFIG.delays.sort);
+                } else {
+                    resolve(true);
+                }
+            }, CONFIG.delays.sort);
+        });
+    }
+}
+
+
+
+
+    /**
+     * 数据分析类
+     */
+   class DataAnalyzer {
+        constructor() {
+            this.pageManager = new PageManager();
+            this.sortManager = new SortManager();
+        }
+
+        meetsStarCriteria(metrics) {
+            const { volume30d, volume7d, marketCap, sixtyDay, thirtyDay, sevenDay, twentyFourHour } = metrics;
+            const thresholds = CONFIG.thresholds;
+
+            return volume30d / 30 < volume7d / 7 / 1.2 && // 新增的判断条件
+                volume7d / 7 / metrics.marketCap > CONFIG.volumeMcapThreshold &&  // 新增的判断条件
+                thirtyDay.isUp && thirtyDay.value /30 < sevenDay.isUp && sevenDay.value / 7 / 1.2 &&   // 新增的判断条件
+                thirtyDay.isUp && thirtyDay.value > thresholds.thirtyDay.min &&
+                thirtyDay.value < thresholds.thirtyDay.max &&
+                sevenDay.isUp && sevenDay.value > thresholds.sevenDay.min &&
+                sevenDay.value < thresholds.sevenDay.max &&
+                twentyFourHour.value > thresholds.twentyFourHour.min &&
+                twentyFourHour.value < thresholds.twentyFourHour.max &&
+                (!sixtyDay.value || sixtyDay.value < thresholds.sixtyDay.max);
+        }
+
+        async processRows() {
+            const rows = document.querySelectorAll(CONFIG.selectors.tableRow);
+            const indices = this.pageManager.getColumnIndices();
+            let processed = 0;
+            let failed = 0;
+
+            for (let i = 0; i < Math.min(rows.length, CONFIG.maxRowsToProcess); i++) {
+                const cells = Array.from(rows[i]?.querySelectorAll('td'));
+                if (!cells?.length) continue;
+
+                try {
+                    const metrics = {
+                        volume30d: DataExtractor.extractNumber(cells[indices.volume30d]?.textContent),
+                        volume7d: DataExtractor.extractNumber(cells[indices.volume7d]?.textContent),
+                        marketCap: DataExtractor.extractNumber(cells[indices.marketCap]?.textContent),
+                        sixtyDay: {
+                            value: DataExtractor.extractPercentage(cells[indices.sixtyDay]),
+                            isUp: cells[indices.sixtyDay]?.querySelector(CONFIG.selectors.caretUp)!== null
+                        },
+                        thirtyDay: {
+                            value: DataExtractor.extractPercentage(cells[indices.thirtyDay]),
+                            isUp: cells[indices.thirtyDay]?.querySelector(CONFIG.selectors.caretUp)!== null
+                        },
+                        sevenDay: {
+                            value: DataExtractor.extractPercentage(cells[indices.sevenDay]),
+                            isUp: cells[indices.sevenDay]?.querySelector(CONFIG.selectors.caretUp)!== null
+                        },
+                        twentyFourHour: {
+                            value: DataExtractor.extractPercentage(cells[indices.twentyFourHour]),
+                            isUp: cells[indices.twentyFourHour]?.querySelector(CONFIG.selectors.caretUp)!== null
+                        }
+                    };
+
+                    if (this.meetsStarCriteria(metrics)) {
+                        const emptyStar = rows[i].querySelector(CONFIG.selectors.emptyStar);
+                        if (emptyStar) {
+                            await new Promise(resolve => setTimeout(resolve, CONFIG.delays.star));
+                            emptyStar.click();
+                            processed++;
+                            console.log(`成功收藏第 ${i + 1} 行`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`处理第 ${i + 1} 行失败:`, error);
+                    failed++;
+                }
+            }
+
+            console.log(`处理完成: ${processed} 个成功, ${failed} 个失败`);
+        }
+    }
+
+
+
+
+    /**
+     * 页面操作类
+     */
+    class PageManager {
+        constructor() {
+            this.setupTimer();
+        }
+
+        setupTimer() {
+            const timerElement = document.createElement('div');
+            timerElement.id = 'timer-container';
+            document.body.appendChild(timerElement);
+
+            const startTime = Date.now();
+            const updateTimer = () => {
+                const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                timerElement.textContent = `Elapsed Time: ${elapsedTime}s`;
+                requestAnimationFrame(updateTimer);
+            };
+            updateTimer();
+        }
+
+        async waitForTable(maxWaitTime = 30000) {
+            const startTime = Date.now();
+            while (Date.now() - startTime < maxWaitTime) {
+                if (document.querySelector(CONFIG.selectors.table)) {
+                    return true;
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            throw new Error('表格加载超时');
+        }
+
+        getColumnIndices() {
+            const headerCells = document.querySelectorAll('th');
+            const indices = {};
+
+            headerCells.forEach((cell, index) => {
+                const text = cell.textContent;
+                if (text.includes('Volume(30d)')) indices.volume30d = index;
+                if (text.includes('Volume(7d)')) indices.volume7d = index;
+                if (text.includes('Market Cap')) indices.marketCap = index;   //
+                if (text.includes('60d %')) indices.sixtyDay = index;
+                if (text.includes('30d %')) indices.thirtyDay = index;
+                if (text.includes('7d %')) indices.sevenDay = index;
+                if (text.includes('24h %')) indices.twentyFourHour = index;
+            });
+
+            return indices;
+        }
+
+        async goToNextPage() {
+            document.querySelectorAll('link[rel="preload"]').forEach(link => link.remove());
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = parseInt(urlParams.get('page')) || 1;
+
+            if (currentPage >= CONFIG.maxPage) {
+                console.log('已达到最大页数');
+                return;
+            }
+
+            const nextPage = currentPage + 1;
+            try {
+                window.location.href = `https://coinmarketcap.com/?page=${nextPage}`;
+            } catch (err) {
+                console.error('页面导航失败:', err);
+                window.location.replace(`https://coinmarketcap.com/?page=${nextPage}`);
+            }
+        }
+    }
+
+
+
+    /**
+     * 主控制类
+     */
+    class MainController {
+        constructor() {
+            this.analyzer = new DataAnalyzer();
+        }
+
+        async initialize() {
+            try {
+                await this.analyzer.pageManager.waitForTable();
+                await new Promise(resolve => setTimeout(resolve, CONFIG.delays.initial));
+                await this.analyzer.sortManager.handleSort(CONFIG.sortColumnText);
+                await this.analyzer.processRows();
+                setTimeout(() => this.analyzer.pageManager.goToNextPage(), CONFIG.delays.nextPage);
+            } catch (error) {
+                console.error('初始化失败:', error);
+            }
+        }
+    }
+
+    // 页面加载完成后执行
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            new MainController().initialize();
+        });
+    } else {
+        new MainController().initialize();
+    }
+
+    // 页面可见性变化处理
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const currentPage = parseInt(urlParams.get('page')) || 1;
+            if (currentPage < CONFIG.maxPage) {
+                new PageManager().goToNextPage();
+            }
+        }
+    });
+})();
