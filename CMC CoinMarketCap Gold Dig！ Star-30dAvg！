@@ -14,7 +14,7 @@ A: 暂时允许 7d 为负。短时间的波动大，尽量看长期波动。
 以下这个版本，30d-avg 似乎已过时。不推荐。
 =============================
 // ==UserScript==
-// @name         CMC CoinMarketCap Gold Dig！ Star-30d-avg！
+// @name         CMC CoinMarketCap Gold Dig！ Star-30dAvg！
 // @namespace    http://tampermonkey.net/
 // @version      3.1
 // @description  1页耗时60秒。 仅从第二页开始选取！首页的其它操作太多了。30d 列 和 volume 列不一样了。没法通用了。
