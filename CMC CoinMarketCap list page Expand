@@ -1,28 +1,42 @@
 // ==UserScript==
-// @name         CMC CoinMarketCap list page Expand
+// @name         CMC CoinMarketCap page Expand only
 // @namespace    http://tampermonkey.net/
-// @version      3.9
-// @description  CMC 行情表 的拓展布局，隐藏部分 div, section 等，页面扩展 有时灵，有时不灵。注意。页面宽度如果还不够，那就缩放页面。
-// @match        https://coinmarketcap.com/view/*
-// @match        https://coinmarketcap.com/trending-cryptocurrencies/
-// @match        https://coinmarketcap.com/most-viewed-pages/
-// @match        https://coinmarketcap.com/
-// @match        https://coinmarketcap.com/?page=*
+// @version      5.9
+// @description  扩展页面. 页面宽度如果还不够，那就缩放页面。
+// @match        https://coinmarketcap.com/*
 // @grant        GM_addStyle
-// @run-at       document-idle
+// @run-at       document-start
 // ==/UserScript==
 
-//精简版
 (function() {
     'use strict';
 
-    GM_addStyle(`
-        .main-content, .cmc-body-wrapper { max-width: none!important; padding: 0 16px!important }
-        .grid { max-width: none!important; width: calc(100% - 32px)!important; margin: 0 16px!important }
-        .grid > div { padding: 0!important }
-        
+    /**
+     * 隐藏并扩展页面
+     */
+    const STYLES = `
+        /* 扩展布局 */
+        .main-content,
+        .cmc-body-wrapper,
+        .grid,
+        .OneColumnPage_base-wrapper__bZvLo,
+        .sc-e4cf1161-0.jMQRQB.cmc-watchlist {
+            max-width: none!important;
+            padding: 0 16px!important;
+        }
+
+        .grid {
+            width: calc(100% - 32px)!important;
+            margin: 0 16px!important;
+        }
+
+        .grid > div {
+            padding: 0!important;
+        }
+
         /* 隐藏广告和非必要元素 */
-        div[data-type="Header/Promotional"],
+        .Coin-Community,
+        #section-community,
         div[data-module-name*="similar-coins"],
         div[data-module-name*="Footer"],
         div[data-module-name*="About"],
@@ -36,8 +50,12 @@
         .footer-container,
         .block-newsletter,
         [class*="Pagination_pagination"],
-        [class*="cmc-table-listing__pagination"],
-        .Coin-Community,
-        #section-community { display: none!important }
-    `);
+        [class*="cmc-table-listing__pagination"] {
+            display: none!important;
+        }
+
+    `;
+    // 添加样式
+    GM_addStyle(STYLES);
+
 })();
