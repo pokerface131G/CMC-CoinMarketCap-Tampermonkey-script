@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         CMC CoinMarketCap Gold Dig! Star-Vol7dAvg+30dAvg 4.91
+// @name         CMC CoinMarketCap Gold dig. Star@Vol7dAvg+30dAvg 5.9
 // @namespace    http://tampermonkey.net/
-// @version      4.91
+// @version      5.9
 // @description  增强的数据分析和收藏功能
 // @match        https://coinmarketcap.com/?page=*
 // @grant        GM_addStyle
@@ -11,12 +11,77 @@
 (function() {
     'use strict';
 
+    /**
+     * 隐藏并扩展页面，计时器
+     */
+    const STYLES = `
+        /* 扩展布局 */
+        .main-content,
+        .cmc-body-wrapper,
+        .grid,
+        .OneColumnPage_base-wrapper__bZvLo,
+        .sc-e4cf1161-0.jMQRQB.cmc-watchlist {
+            max-width: none!important;
+            padding: 0 16px!important;
+        }
+
+        .grid {
+            width: calc(100% - 32px)!important;
+            margin: 0 16px!important;
+        }
+
+        .grid > div {
+            padding: 0!important;
+        }
+
+        /* 隐藏广告和非必要元素 */
+        .Coin-Community,
+        #section-community,
+        div[data-module-name*="similar-coins"],
+        div[data-module-name*="Footer"],
+        div[data-module-name*="About"],
+        div[data-module-name*="yields"],
+        div[data-module-name*="header-bottom-banner"],
+        div[data-module-name*="alerts"],
+        div[id*="google_ads"],
+        iframe[title*="ad content"],
+        .project-account-section,
+        .sentiment-wrapper,
+        .footer-container,
+        .block-newsletter,
+        [class*="Pagination_pagination"],
+        [class*="cmc-table-listing__pagination"] {
+            display: none!important;
+        }
+
+        /* 计时器样式 */
+        #timer-container {
+            position: fixed;
+            top: 55px;
+            right: 155px;
+            background-color: rgba(255, 215, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 9999;
+            font-size: 12px;
+        }
+    `;
+    // 添加样式
+    GM_addStyle(STYLES);
+
+
+
+
+    /**
+     * 符合条件加星标。Star@Vol7dAvg+30dAvg
+     */
     // Configuration object
     const CONFIG = {
-        maxPage: 10,
+        maxPage: 15,
         maxRowsToProcess: 30,
         sortColumnText: '30d %',
-        volumeMcapThreshold: 0.044, //单值容易，均值较难。
+        thresholdVolumeMcap: 0.044, //单值容易，均值较难。
         thresholds: {
             sixtyDay: { max: 666 },
             thirtyDay: { min: 3, max: 222 },
@@ -41,47 +106,6 @@
         }
     };
 
-    // 样式定义
-    const STYLES = `
-       .main-content,.cmc-body-wrapper {
-            max-width: none!important;
-            padding: 0 16px!important;
-        }
-       .grid {
-            max-width: none!important;
-            width: calc(100% - 32px)!important;
-            margin: 0 16px!important;
-        }
-       .grid > div {
-            padding: 0!important;
-        }
-       .Coin-Community, #section-community,
-        div[data-module-name="similar-coins"],
-        div[data-module-name="Coin-Footer"],
-        div[data-module-name="Coin-About"],
-        div[data-module-name="yields"],
-       .block-newsletter,
-        div.sc-65e7f566-0.ibxKcZ,
-        [id^="google_ads_iframe"],
-        div[id*="google_ads"],
-        iframe[title="3rd party ad content"] {
-            display: none!important;
-        }
-        #timer-container {
-            position: fixed;
-            top: 55px;
-            right: 155px;
-            background-color: rgba(255, 215, 0, 0.7); //GOLD
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            z-index: 9999;
-            font-size: 12px;
-        }
-    `;
-
-    // 添加样式
-    GM_addStyle(STYLES);
 
     /**
      * 排序管理类
@@ -198,27 +222,33 @@
         }
 
         meetsStarCriteria(metrics) {
-            const { thirtyDay, sevenDay, twentyFourHour, sixtyDay } = metrics;
+            const { marketCap, volume30d, volume7d, sixtyDay, thirtyDay, sevenDay, twentyFourHour } = metrics;
             const thresholds = CONFIG.thresholds;
 
             // 直接判断条件
+            // Access thresholds from thresholds
             return (
-                // thirtyDay.isUp && thirtyDay.value / 30 < sevenDay.value / 7 / 1.1 &&
-                // thirtyDay.isUp && thirtyDay.value > thresholds.thirtyDay.min &&
-                // thirtyDay.value < thresholds.thirtyDay.max &&
-                sevenDay.isUp && sevenDay.value > thresholds.sevenDay.min &&
-                sevenDay.value < thresholds.sevenDay.max &&
-                // twentyFourHour.isUp && twentyFourHour.value > thresholds.twentyFourHour.max &&
-                // twentyFourHour.isDown && twentyFourHour.value < thresholds.twentyFourHour.min &&
-                (!sixtyDay.value || sixtyDay.value < thresholds.sixtyDay.max)
+// 策略小结：随心（近日涨）所欲（今日也涨）不逾矩（不越界）@20241125
+                volume7d / 7 / 1.18 > volume30d / 30 &&                                //近日涨
+                volume7d / 7 > CONFIG.thresholdVolumeMcap &&
+                marketCap > volume7d / 7 &&                                            //今日也涨
+           //     thirtyDay.isUp &&
+         //       thirtyDay.value / 30 < sevenDay.value / 7 / 1.1 &&   //此限制 可以不用，你已经按照 30d 排序了。 保留 下面 60d 的限制就可以了。似乎条件很宽，就这样，选出的币 也不多。
+                sevenDay.isUp &&
+                sevenDay.value < thresholds.sevenDay.max &&                            //不越界
+                (!thirtyDay.value || thirtyDay.value < thresholds.thirtyDay.max) &&    //不越界
+                (!sixtyDay.value || sixtyDay.value < thresholds.sixtyDay.max)          //不越界
             );
 
             // 输出详细的调试信息
             console.log('Metrics:', {
+                'marketCap': marketCap,
+                'volume30d': volume30d,
+                'volume7d': volume7d,
+                'sixtyDay': sixtyDay,
                 'thirtyDay': thirtyDay,
                 'sevenDay': sevenDay,
                 'twentyFourHour': twentyFourHour,
-                'sixtyDay': sixtyDay
             });
         }
 
@@ -300,21 +330,28 @@
      */
     class PageManager {
         constructor() {
-            this.setupTimer();
+            // 确保在构造函数中设置计时器
+            setTimeout(() => {
+                this.setupTimer();
+            }, 1000); // 延迟1秒创建计时器，确保DOM已加载
         }
 
         setupTimer() {
-            const timerElement = document.createElement('div');
-            timerElement.id = 'timer-container';
-            document.body.appendChild(timerElement);
+            // 检查是否已存在计时器
+            let timerElement = document.getElementById('timer-container');
+            if (!timerElement) {
+                timerElement = document.createElement('div');
+                timerElement.id = 'timer-container';
+                document.body.appendChild(timerElement);
 
-            const startTime = Date.now();
-            const updateTimer = () => {
-                const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
-                timerElement.textContent = `Elapsed Time: ${elapsedTime}s`;
-                requestAnimationFrame(updateTimer);
-            };
-            updateTimer();
+                const startTime = Date.now();
+                const updateTimer = () => {
+                    const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+                    timerElement.textContent = `Time: ${elapsedTime}s`;
+                    requestAnimationFrame(updateTimer);
+                };
+                updateTimer();
+            }
         }
 
         async waitForTable(maxWaitTime = 30000) {
